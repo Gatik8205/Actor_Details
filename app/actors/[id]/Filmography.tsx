@@ -3,7 +3,7 @@
 import React from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Image from "next/image";
-import { MovieCredit } from "@/app/lib/getActorCredits";
+//import { MovieCredit } from "@/app/lib/getActorCredits";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 
