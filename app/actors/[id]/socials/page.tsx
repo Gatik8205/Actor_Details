@@ -1,4 +1,4 @@
-import { getActorSocials, SocialLinks } from "@/app/lib/getActorSocials";
+import { getActorSocials } from "@/app/lib/getActorSocials";
 
 interface SocialsPageProps {
   params: {
@@ -7,65 +7,49 @@ interface SocialsPageProps {
 }
 
 export default async function SocialsPage({ params }: SocialsPageProps) {
-  const socials: SocialLinks = await getActorSocials(params.id);
-
-  const hasAnySocial =
-    socials.instagram_id ||
-    socials.twitter_id ||
-    socials.facebook_id;
+  const socials = await getActorSocials(params.id);
 
   return (
-    <div>
-      <h2 style={{ marginBottom: "15px" }}>Social Links</h2>
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Social Links</h2>
 
-      {!hasAnySocial && (
-        <p style={{ opacity: 0.8 }}>
-          No social media profiles found for this actor.
-        </p>
-      )}
+      <ul className="space-y-2">
+        {socials.instagram_id && (
+          <li>
+            <a
+              href={`https://instagram.com/${socials.instagram_id}`}
+              target="_blank"
+              className="text-blue-400 hover:underline"
+            >
+              Instagram
+            </a>
+          </li>
+        )}
 
-      {hasAnySocial && (
-        <ul style={{ lineHeight: "2rem", fontSize: "1.05rem" }}>
-          {socials.instagram_id && (
-            <li>
-              <a
-                href={`https://instagram.com/${socials.instagram_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#61dafb" }}
-              >
-                Instagram
-              </a>
-            </li>
-          )}
+        {socials.twitter_id && (
+          <li>
+            <a
+              href={`https://x.com/${socials.twitter_id}`}
+              target="_blank"
+              className="text-blue-400 hover:underline"
+            >
+              Twitter (X)
+            </a>
+          </li>
+        )}
 
-          {socials.twitter_id && (
-            <li>
-              <a
-                href={`https://x.com/${socials.twitter_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#61dafb" }}
-              >
-                Twitter (X)
-              </a>
-            </li>
-          )}
-
-          {socials.facebook_id && (
-            <li>
-              <a
-                href={`https://facebook.com/${socials.facebook_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#61dafb" }}
-              >
-                Facebook
-              </a>
-            </li>
-          )}
-        </ul>
-      )}
+        {socials.facebook_id && (
+          <li>
+            <a
+              href={`https://facebook.com/${socials.facebook_id}`}
+              target="_blank"
+              className="text-blue-400 hover:underline"
+            >
+              Facebook
+            </a>
+          </li>
+        )}
+      </ul>
     </div>
   );
 }
