@@ -1,38 +1,54 @@
 // app/lib/getActorCredits.ts
+
+export interface MovieCredit {
+  id: number;
+  title: string;
+  character?: string;
+  job?: string;
+  media_type?: string;
+  poster_path: string | null;
+  release_date?: string;
+  popularity: number;
+  genre_ids?: number[];
+}
+
 export interface PaginatedCredits {
   page: number;
   total_pages: number;
   results: MovieCredit[];
 }
 
-export async function getActorCredits(id: string, page: number = 1): Promise<PaginatedCredits> {
+export async function getActorCredits(
+  id: string,
+  page: number = 1
+): Promise<PaginatedCredits> {
   const token = process.env.TMDB_ACCESS_TOKEN;
 
   const res = await fetch(
-    `https://api.themoviedb.org/3/person/${id}/movie_credits?page=${page}`,
+    `https://api.themoviedb.org/3/person/${id}/movie_credits`,
     {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
       },
-      next: { revalidate: 60 },
+      cache: "no-store",
     }
   );
 
-  // TMDB movie_credits does NOT paginate normally.
-  // So we fake pagination on client.
-  const json = await res.json();
+  if (!res.ok) {
+    console.error("Failed to load credits:", await res.text());
+    return {
+      page: 1,
+      total_pages: 1,
+      results: [],
+    };
+  }
 
-  const allCredits: MovieCredit[] = json.cast ?? [];
-
-  const PER_PAGE = 40;
-
-  const start = (page - 1) * PER_PAGE;
-  const end = page * PER_PAGE;
+  const data = await res.json();
 
   return {
     page,
-    total_pages: Math.ceil(allCredits.length / PER_PAGE),
-    results: allCredits.slice(start, end),
+    total_pages: 1, // TMDB movie_credits returns all in one response
+    results: data.cast as MovieCredit[],
   };
 }
