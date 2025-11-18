@@ -20,7 +20,7 @@ export default function Home() {
           rounded-lg hover:bg-yellow-600 transition
         "
       >
-        View Robert Downey Jr. (ID: 500)
+        View Tom Cruise. (ID: 500)
       </a>
     </div>
   );
