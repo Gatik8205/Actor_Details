@@ -22,16 +22,14 @@ export default function FilmographyClient({
   actorId,
   initialPage,
 }: FilmographyClientProps) {
-  // ----------------------------------------------------
-  // Modal State (typed)
-  // ----------------------------------------------------
-  const [selectedMovie, setSelectedMovie] = useState<NormalizedFilm | null>(
-    null
-  );
+  // ---------------------------------------------------------
+  // Modal State
+  // ---------------------------------------------------------
+  const [selectedMovie, setSelectedMovie] = useState<NormalizedFilm | null>(null);
 
-  // ----------------------------------------------------
-  // Infinite Query (Pagination)
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
+  // Infinite Query (Paginated API)
+  // ---------------------------------------------------------
   const {
     data,
     fetchNextPage,
@@ -40,21 +38,20 @@ export default function FilmographyClient({
   } = useInfiniteQuery({
     queryKey: ["actor-credits", actorId],
     initialPageParam: 1,
-    // <-- typed pageParam to avoid implicit `any`
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const res = await fetch(`/api/credits?id=${actorId}&page=${pageParam}`);
       return res.json() as Promise<PaginatedCredits>;
     },
-    getNextPageParam: (lastPage: PaginatedCredits) =>
+    getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
     initialData: {
       pages: [initialPage],
       pageParams: [1],
     },
-    staleTime: 1000 * 60 * 10, // 10-min caching
+    staleTime: 1000 * 60 * 10,
   });
 
-  // Combine pages safely
+  // Combine all TMDB API pages
   const allCredits = useMemo(
     () => data?.pages.flatMap((p) => p.results) ?? [],
     [data]
@@ -65,9 +62,9 @@ export default function FilmographyClient({
     [allCredits]
   );
 
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
   // Filters + Sorting + Search
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
   const [sortOption, setSortOption] = useState("year-desc");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
@@ -95,9 +92,9 @@ export default function FilmographyClient({
     [films]
   );
 
-  // ----------------------------------------------------
-  // Filter + Sort Logic
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
+  // Filtering + Sorting Logic
+  // ---------------------------------------------------------
   const filteredAndSorted = useMemo(() => {
     let result = [...films];
 
@@ -113,16 +110,22 @@ export default function FilmographyClient({
       );
     }
 
-    if (selectedGenres.length > 0)
+    // Genre filter
+    if (selectedGenres.length > 0) {
       result = result.filter((film) =>
         film.genres.some((g) => selectedGenres.includes(g))
       );
+    }
 
-    if (selectedRoles.length > 0)
+    // Role filter
+    if (selectedRoles.length > 0) {
       result = result.filter((film) => selectedRoles.includes(film.roleType));
+    }
 
-    if (selectedYear !== "all")
+    // Year filter
+    if (selectedYear !== "all") {
       result = result.filter((film) => film.year === selectedYear);
+    }
 
     // Sorting
     switch (sortOption) {
@@ -150,9 +153,9 @@ export default function FilmographyClient({
     sortOption,
   ]);
 
-  // ----------------------------------------------------
-  // Prefetch on Hover (typed)
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
+  // Prefetch Movie on Hover
+  // ---------------------------------------------------------
   const queryClient = useQueryClient();
 
   const prefetchFilm = useCallback(
@@ -165,56 +168,46 @@ export default function FilmographyClient({
           );
           return res.json();
         },
-        staleTime: 1000 * 60 * 20, // 20 mins
+        staleTime: 1000 * 60 * 20,
       });
     },
     [queryClient]
   );
 
-  // ----------------------------------------------------
-  // Virtualized Rendering
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
+  // Virtualizer
+  // ---------------------------------------------------------
   const parentRef = useRef<HTMLDivElement | null>(null);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredAndSorted.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: useCallback(() => 260, []),
-    overscan: 8,
+    estimateSize: () => 260,
+    overscan: 10,
   });
 
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
   // UI Rendering
-  // ----------------------------------------------------
+  // ---------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* Search */}
+      {/* Search Input */}
       <input
         type="text"
         placeholder="Search filmography..."
         value={searchQuery}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          setSearchQuery(e.target.value)
-        }
-        className="
-          w-full px-4 py-2 
-          bg-black border border-gray-700 
-          rounded text-white 
-          placeholder-gray-500
-          focus:border-yellow-600 focus:outline-none
-          transition
-        "
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-full px-4 py-2 bg-black border border-gray-700 rounded text-white placeholder-gray-500 focus:border-yellow-600 outline-none"
       />
 
       {/* Sorting */}
       <div className="flex gap-4 items-center">
         <label className="font-medium">Sort by:</label>
+
         <select
           className="border border-gray-700 bg-black text-white px-3 py-2 rounded"
           value={sortOption}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-            setSortOption(e.target.value)
-          }
+          onChange={(e) => setSortOption(e.target.value)}
         >
           <option value="year-desc">Year (Newest → Oldest)</option>
           <option value="year-asc">Year (Oldest → Newest)</option>
@@ -275,14 +268,17 @@ export default function FilmographyClient({
         </div>
       </div>
 
-      {/* Year */}
+      {/* Year Filter */}
       <div>
         <h2 className="font-medium mb-2">Year</h2>
+
         <select
           className="border border-gray-700 bg-black text-white px-3 py-2 rounded"
           value={selectedYear}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-            setSelectedYear(e.target.value === "all" ? "all" : Number(e.target.value))
+          onChange={(e) =>
+            setSelectedYear(
+              e.target.value === "all" ? "all" : Number(e.target.value)
+            )
           }
         >
           <option value="all">All Years</option>
@@ -294,7 +290,7 @@ export default function FilmographyClient({
         </select>
       </div>
 
-      {/* Reset */}
+      {/* Reset Filters */}
       <button
         onClick={() => {
           setSelectedGenres([]);
@@ -319,7 +315,7 @@ export default function FilmographyClient({
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
-            const film = filteredAndSorted[virtualRow.index] as NormalizedFilm | undefined;
+            const film = filteredAndSorted[virtualRow.index];
 
             if (!film) return null;
 
@@ -336,24 +332,13 @@ export default function FilmographyClient({
                 <div
                   onMouseEnter={() => prefetchFilm(film.id)}
                   onClick={() => setSelectedMovie(film)}
-                  className="
-                    group flex gap-4 items-start 
-                    bg-[#111] p-4 rounded-xl cursor-pointer 
-                    border border-neutral-800
-                    transition-all duration-300
-                    hover:shadow-[0_0_25px_rgba(255,200,0,0.35)]
-                    hover:border-yellow-500/40
-                    hover:scale-[1.015]
-                  "
+                  className="group flex gap-4 items-start bg-[#111] p-4 rounded-xl cursor-pointer border border-neutral-800 transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,200,0,0.35)] hover:border-yellow-500/40 hover:scale-[1.015]"
                 >
                   {/* Poster */}
                   {film.poster ? (
                     <img
                       src={`https://image.tmdb.org/t/p/w200${film.poster}`}
-                      className="
-                        w-[100px] h-[150px] object-cover rounded-lg 
-                        transition-transform duration-300 group-hover:scale-105
-                      "
+                      className="w-[100px] h-[150px] object-cover rounded-lg transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"
                       alt={film.title}
                     />
@@ -371,12 +356,7 @@ export default function FilmographyClient({
                       <p className="text-gray-500 text-sm mb-1">({film.year})</p>
                     )}
 
-                    <span
-                      className="
-                        inline-block px-2 py-1 text-xs rounded-md 
-                        bg-yellow-600/20 text-yellow-400 border border-yellow-600/40
-                      "
-                    >
+                    <span className="inline-block px-2 py-1 text-xs rounded-md bg-yellow-600/20 text-yellow-400 border border-yellow-600/40">
                       {film.roleType}
                     </span>
 
@@ -384,11 +364,7 @@ export default function FilmographyClient({
                       {film.genres.map((g) => (
                         <span
                           key={g}
-                          className="
-                            px-2 py-1 text-xs rounded-full 
-                            bg-neutral-800 border border-neutral-700
-                            text-gray-300
-                          "
+                          className="px-2 py-1 text-xs rounded-full bg-neutral-800 border border-neutral-700 text-gray-300"
                         >
                           {g}
                         </span>
@@ -402,7 +378,7 @@ export default function FilmographyClient({
         </div>
       </div>
 
-      {/* Load more */}
+      {/* Load More */}
       {hasNextPage && (
         <div className="text-center mt-4">
           <button
