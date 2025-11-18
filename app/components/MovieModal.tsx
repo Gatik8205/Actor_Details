@@ -8,7 +8,7 @@ interface Genre {
   name: string;
 }
 
-interface MovieData {
+export interface MovieData {
   id: number;
   title: string;
   poster_path: string | null;
@@ -26,7 +26,7 @@ interface MovieModalProps {
 export default function MovieModal({ movie, onClose }: MovieModalProps) {
   const backdropRef = useRef<HTMLDivElement | null>(null);
 
-  // Close on ESC key
+  // ESC key closes modal
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -35,7 +35,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  // Close when clicking outside modal
+  // Click outside modal closes it
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === backdropRef.current) onClose();
   };
@@ -52,20 +52,21 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
     >
       <div
         className="
-          bg-[#111] p-6 rounded-xl w-[90%] max-w-3xl
+          bg-[#111] p-6 rounded-xl w-[90%] max-w-3xl relative
           border border-neutral-800 shadow-2xl
           animate-scaleIn
         "
       >
+        {/* Close Button */}
         <button
           onClick={onClose}
-          className="float-right text-gray-400 hover:text-white text-xl"
+          className="absolute top-3 right-3 text-gray-400 hover:text-white text-xl"
           aria-label="Close modal"
         >
           ✕
         </button>
 
-        <div className="flex gap-6 mt-2">
+        <div className="flex gap-6 mt-4">
 
           {/* Poster */}
           {movie.poster_path ? (
@@ -82,7 +83,9 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
 
           {/* Details */}
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-1">{movie.title}</h2>
+            <h2 className="text-2xl font-bold mb-1 text-white">
+              {movie.title}
+            </h2>
 
             {movie.release_date && (
               <p className="text-gray-400 mb-2">
@@ -91,7 +94,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
             )}
 
             {movie.vote_average !== undefined && (
-              <p className="text-yellow-400 font-medium text-lg mb-2">
+              <p className="text-yellow-400 font-medium text-lg mb-3">
                 ⭐ {movie.vote_average.toFixed(1)}
               </p>
             )}
@@ -130,7 +133,7 @@ export default function MovieModal({ movie, onClose }: MovieModalProps) {
                 hover:bg-red-700 transition
               "
             >
-              Watch Trailer
+              Watch Trailer →
             </a>
           </div>
         </div>

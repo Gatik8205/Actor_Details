@@ -2,20 +2,35 @@
 
 import { useState, useMemo, useRef, useCallback } from "react";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import {useQueryClient,useInfiniteQuery,} from "@tanstack/react-query";
+import {
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 
 import type { PaginatedCredits } from "@/app/lib/getActorCredits";
 import type { NormalizedFilm } from "@/app/lib/normalizeFilmography";
 import { normalizeFilmography } from "@/app/lib/normalizeFilmography";
 
-import MovieModal from "@/app/components/MovieModal";
+import MovieModal, { type MovieData } from "@/app/components/MovieModal";
 
-interface FilmographyClientProps {actorId: string;initialPage: PaginatedCredits;}
+interface FilmographyClientProps {
+  actorId: string;
+  initialPage: PaginatedCredits;
+}
 
-export default function FilmographyClient({actorId,initialPage,}: FilmographyClientProps) {
+export default function FilmographyClient({
+  actorId,
+  initialPage,
+}: FilmographyClientProps) {
 
-  const [selectedMovie, setSelectedMovie] = useState<NormalizedFilm | null>(null);
+  // ----------------------------------------------------
+  // Modal (FULL movie data)
+  // ----------------------------------------------------
+  const [selectedMovie, setSelectedMovie] = useState<MovieData | null>(null);
 
+  // ----------------------------------------------------
+  // Infinite Query (Pagination)
+  // ----------------------------------------------------
   const {
     data,
     fetchNextPage,
@@ -26,7 +41,7 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
     initialPageParam: 1,
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const res = await fetch(`/api/credits?id=${actorId}&page=${pageParam}`);
-      return (await res.json()) as PaginatedCredits;
+      return res.json() as Promise<PaginatedCredits>;
     },
     getNextPageParam: (lastPage: PaginatedCredits) =>
       lastPage.page < lastPage.total_pages ? lastPage.page + 1 : undefined,
@@ -37,14 +52,19 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
     staleTime: 1000 * 60 * 10,
   });
 
-  const allCredits = useMemo(() => {
-    return data?.pages.flatMap((p) => p.results) ?? [];
-  }, [data]);
+  const allCredits = useMemo(
+    () => data?.pages.flatMap((p) => p.results) ?? [],
+    [data]
+  );
 
-  const films: NormalizedFilm[] = useMemo(() => {
-    return normalizeFilmography(allCredits);
-  }, [allCredits]);
+  const films: NormalizedFilm[] = useMemo(
+    () => normalizeFilmography(allCredits),
+    [allCredits]
+  );
 
+  // ----------------------------------------------------
+  // Filters + Sorting + Search
+  // ----------------------------------------------------
   const [sortOption, setSortOption] = useState("year-desc");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
@@ -59,7 +79,10 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
     [films]
   );
 
-  const allRoles = ["Actor", "Producer", "Director", "Writer", "Crew"];
+  const allRoles = useMemo(
+    () => ["Actor", "Producer", "Director", "Writer", "Crew"],
+    []
+  );
 
   const allYears = useMemo(
     () =>
@@ -72,35 +95,28 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
   const filteredAndSorted = useMemo(() => {
     let result = [...films];
 
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (film) =>
+          film.title.toLowerCase().includes(q) ||
+          film.roleType.toLowerCase().includes(q) ||
+          film.genres.some((g) => g.toLowerCase().includes(q)) ||
+          (film.year && film.year.toString().includes(q))
+      );
+    }
+
+    if (selectedGenres.length > 0)
       result = result.filter((film) =>
-        film.title.toLowerCase().includes(q) ||
-        film.roleType.toLowerCase().includes(q) ||
-        film.genres.some((g) => g.toLowerCase().includes(q)) ||
-        (film.year && film.year.toString().includes(q))
+        film.genres.some((g) => selectedGenres.includes(g))
       );
-    }
 
-    // Genre filter
-    if (selectedGenres.length > 0) {
-      result = result.filter((f) =>
-        f.genres.some((g) => selectedGenres.includes(g))
-      );
-    }
+    if (selectedRoles.length > 0)
+      result = result.filter((film) => selectedRoles.includes(film.roleType));
 
-    // Role filter
-    if (selectedRoles.length > 0) {
-      result = result.filter((f) => selectedRoles.includes(f.roleType));
-    }
+    if (selectedYear !== "all")
+      result = result.filter((film) => film.year === selectedYear);
 
-    // Year filter
-    if (selectedYear !== "all") {
-      result = result.filter((f) => f.year === selectedYear);
-    }
-
-    // Sorting
     switch (sortOption) {
       case "year-desc":
         result.sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
@@ -126,6 +142,9 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
     sortOption,
   ]);
 
+  // ----------------------------------------------------
+  // Prefetch on Hover (performance)
+  // ----------------------------------------------------
   const queryClient = useQueryClient();
 
   const prefetchFilm = useCallback(
@@ -144,6 +163,20 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
     [queryClient]
   );
 
+  // ----------------------------------------------------
+  // Fetch FULL movie details for modal
+  // ----------------------------------------------------
+  const openMovieModal = async (id: number) => {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/movie/${id}?api_key=${process.env.NEXT_PUBLIC_TMDB_KEY}`
+    );
+    const fullMovie: MovieData = await res.json();
+    setSelectedMovie(fullMovie);
+  };
+
+  // ----------------------------------------------------
+  // Virtualized Rendering
+  // ----------------------------------------------------
   const parentRef = useRef<HTMLDivElement | null>(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -153,6 +186,9 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
     overscan: 8,
   });
 
+  // ----------------------------------------------------
+  // UI Rendering
+  // ----------------------------------------------------
   return (
     <div className="space-y-6">
 
@@ -162,16 +198,16 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
         placeholder="Search filmography..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        className="w-full px-4 py-2 bg-black border border-gray-700 rounded text-white"
+        className="w-full px-4 py-2 bg-black border border-gray-700 rounded text-white placeholder-gray-500"
       />
 
-      {/* SORT */}
+      {/* SORTING */}
       <div className="flex gap-4 items-center">
-        <label>Sort by:</label>
+        <label className="font-medium">Sort by:</label>
         <select
+          className="border border-gray-700 bg-black text-white px-3 py-2 rounded"
           value={sortOption}
           onChange={(e) => setSortOption(e.target.value)}
-          className="border border-gray-700 bg-black text-white px-3 py-2 rounded"
         >
           <option value="year-desc">Year (Newest → Oldest)</option>
           <option value="year-asc">Year (Oldest → Newest)</option>
@@ -181,71 +217,79 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
       </div>
 
       {/* GENRES */}
-      <h2 className="font-medium">Genres</h2>
-      <div className="flex flex-wrap gap-2">
-        {allGenres.map((g) => (
-          <button
-            key={g}
-            className={`px-3 py-1 rounded-full border ${
-              selectedGenres.includes(g)
-                ? "bg-yellow-600 border-yellow-600 text-black"
-                : "border-gray-700 text-gray-300"
-            }`}
-            onClick={() =>
-              setSelectedGenres((prev) =>
-                prev.includes(g)
-                  ? prev.filter((x) => x !== g)
-                  : [...prev, g]
-              )
-            }
-          >
-            {g}
-          </button>
-        ))}
+      <div>
+        <h2 className="font-medium mb-2">Genres</h2>
+        <div className="flex flex-wrap gap-2">
+          {allGenres.map((genre) => (
+            <button
+              key={genre}
+              className={`px-3 py-1 rounded-full border ${
+                selectedGenres.includes(genre)
+                  ? "bg-yellow-600 text-black border-yellow-600"
+                  : "border-gray-700 text-gray-300"
+              }`}
+              onClick={() =>
+                setSelectedGenres((prev) =>
+                  prev.includes(genre)
+                    ? prev.filter((g) => g !== genre)
+                    : [...prev, genre]
+                )
+              }
+            >
+              {genre}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ROLES */}
-      <h2 className="font-medium">Roles</h2>
-      <div className="flex flex-wrap gap-2">
-        {allRoles.map((role) => (
-          <button
-            key={role}
-            className={`px-3 py-1 rounded-full border ${
-              selectedRoles.includes(role)
-                ? "bg-blue-600 text-white border-blue-600"
-                : "border-gray-700 text-gray-300"
-            }`}
-            onClick={() =>
-              setSelectedRoles((prev) =>
-                prev.includes(role)
-                  ? prev.filter((x) => x !== role)
-                  : [...prev, role]
-              )
-            }
-          >
-            {role}
-          </button>
-        ))}
+      <div>
+        <h2 className="font-medium mb-2">Roles</h2>
+        <div className="flex flex-wrap gap-2">
+          {allRoles.map((role) => (
+            <button
+              key={role}
+              className={`px-3 py-1 rounded-full border ${
+                selectedRoles.includes(role)
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "border-gray-700 text-gray-300"
+              }`}
+              onClick={() =>
+                setSelectedRoles((prev) =>
+                  prev.includes(role)
+                    ? prev.filter((r) => r !== role)
+                    : [...prev, role]
+                )
+              }
+            >
+              {role}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* YEAR */}
-      <h2 className="font-medium">Year</h2>
-      <select
-        value={selectedYear}
-        onChange={(e) =>
-          setSelectedYear(e.target.value === "all" ? "all" : Number(e.target.value))
-        }
-        className="border border-gray-700 bg-black text-white px-3 py-2 rounded"
-      >
-        <option value="all">All Years</option>
-        {allYears.map((y) => (
-          <option key={y} value={y!}>
-            {y}
-          </option>
-        ))}
-      </select>
+      <div>
+        <h2 className="font-medium mb-2">Year</h2>
+        <select
+          className="border border-gray-700 bg-black text-white px-3 py-2 rounded"
+          value={selectedYear}
+          onChange={(e) =>
+            setSelectedYear(
+              e.target.value === "all" ? "all" : Number(e.target.value)
+            )
+          }
+        >
+          <option value="all">All Years</option>
+          {allYears.map((y) => (
+            <option key={y} value={y!}>
+              {y}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {/* RESET */}
+      {/* RESET FILTERS */}
       <button
         onClick={() => {
           setSelectedGenres([]);
@@ -269,67 +313,87 @@ export default function FilmographyClient({actorId,initialPage,}: FilmographyCli
             position: "relative",
           }}
         >
-          {rowVirtualizer.getVirtualItems().map(
-            (virtualRow: VirtualItem) => {
-              const film = filteredAndSorted[virtualRow.index];
-              if (!film) return null;
+          {rowVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
+            const film = filteredAndSorted[virtualRow.index];
 
-              return (
+            if (!film) return null;
+
+            return (
+              <div
+                key={film.id}
+                style={{
+                  position: "absolute",
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+                className="mb-4"
+              >
                 <div
-                  key={film.id}
-                  style={{
-                    position: "absolute",
-                    width: "100%",
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
+                  onMouseEnter={() => prefetchFilm(film.id)}
+                  onClick={() => openMovieModal(film.id)}
+                  className="
+                    group flex gap-4 items-start 
+                    bg-[#111] p-4 rounded-xl cursor-pointer 
+                    border border-neutral-800
+                    transition-all duration-300
+                    hover:shadow-[0_0_25px_rgba(255,200,0,0.35)]
+                    hover:border-yellow-500/40
+                    hover:scale-[1.015]
+                  "
                 >
-                  <div
-                    onMouseEnter={() => prefetchFilm(film.id)}
-                    onClick={() => setSelectedMovie(film)}
-                    className="group flex gap-4 bg-[#111] p-4 rounded-xl cursor-pointer border border-neutral-800 hover:border-yellow-500/40 hover:scale-[1.01]"
-                  >
-                    {/* Poster */}
-                    {film.poster ? (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w200${film.poster}`}
-                        className="w-[100px] h-[150px] object-cover rounded-md group-hover:scale-105 transition"
-                        loading="lazy"
-                        alt={film.title}
-                      />
-                    ) : (
-                      <div className="w-[100px] h-[150px] bg-neutral-800 rounded" />
+                  {/* Poster */}
+                  {film.poster ? (
+                    <img
+                      src={`https://image.tmdb.org/t/p/w200${film.poster}`}
+                      className="
+                        w-[100px] h-[150px] object-cover rounded-lg 
+                        transition-transform duration-300 group-hover:scale-105
+                      "
+                      loading="lazy"
+                      alt={film.title}
+                    />
+                  ) : (
+                    <div className="w-[100px] h-[150px] bg-neutral-700 rounded" />
+                  )}
+
+                  {/* Details */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-white group-hover:text-yellow-400 transition">
+                      {film.title}
+                    </h3>
+
+                    {film.year && (
+                      <p className="text-gray-500 text-sm mb-1">({film.year})</p>
                     )}
 
-                    {/* Text */}
-                    <div>
-                      <h3 className="text-white text-lg group-hover:text-yellow-400">
-                        {film.title}
-                      </h3>
+                    <span
+                      className="
+                        inline-block px-2 py-1 text-xs rounded-md 
+                        bg-yellow-600/20 text-yellow-400 border border-yellow-600/40
+                      "
+                    >
+                      {film.roleType}
+                    </span>
 
-                      {film.year && (
-                        <p className="text-gray-400 text-sm">({film.year})</p>
-                      )}
-
-                      <span className="inline-block px-2 py-1 bg-yellow-600/20 text-yellow-400 border border-yellow-600/40 text-xs rounded">
-                        {film.roleType}
-                      </span>
-
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {film.genres.map((g) => (
-                          <span
-                            key={g}
-                            className="px-2 py-1 text-xs bg-neutral-900 border border-neutral-700 text-gray-300 rounded"
-                          >
-                            {g}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {film.genres.map((g) => (
+                        <span
+                          key={g}
+                          className="
+                            px-2 py-1 text-xs rounded-full 
+                            bg-neutral-800 border border-neutral-700
+                            text-gray-300
+                          "
+                        >
+                          {g}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
-              );
-            }
-          )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
