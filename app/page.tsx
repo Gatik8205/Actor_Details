@@ -1,6 +1,7 @@
+import { PageProps } from "@/.next/types/app/layout";
 import { getActor } from "@/app/lib/getActor";
 import { getActorCredits } from "@/app/lib/getActorCredits";
-import Filmography from "./actors/[id]/Filmography";
+//import Filmography from "./actors/[id]/Filmography";
 
 export default async function ActorPage(props: PageProps) {
   const { id } = await props.params;
