@@ -1,22 +1,27 @@
-import { PageProps } from "@/.next/types/app/layout";
-import { getActor } from "@/app/lib/getActor";
-import { getActorCredits } from "@/app/lib/getActorCredits";
-//import Filmography from "./actors/[id]/Filmography";
+// app/page.tsx
 
-export default async function ActorPage(props: PageProps) {
-  const { id } = await props.params;
-
-  const actor = await getActor(id);
-  const credits = await getActorCredits(id);
-
+export default function Home() {
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", paddingBottom: "4rem" }}>
-      {/* Actor Info */}
-      ...
+    <div className="p-10 text-center">
+      <h1 className="text-4xl font-bold">IMDb Clone</h1>
+      <p className="text-gray-400 mt-4">
+        Search actors and explore full filmography.
+      </p>
 
-      <h2 style={{ marginTop: "40px", marginBottom: "20px" }}>Filmography</h2>
+      <p className="mt-6 text-gray-300">
+        Try an example actor:
+      </p>
 
-      <Filmography credits={credits} />
+      <a
+        href="/actors/500"
+        className="
+          inline-block mt-4 px-6 py-3 
+          bg-yellow-500 text-black font-semibold 
+          rounded-lg hover:bg-yellow-600 transition
+        "
+      >
+        View Robert Downey Jr. (ID: 500)
+      </a>
     </div>
   );
 }
