@@ -1,0 +1,28 @@
+.actor-layout {
+  padding-top: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.actor-tabs {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.tab-link {
+  color: #ddd;
+  padding: 10px 15px;
+  background: #222;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: 0.3s;
+}
+
+.tab-link:hover {
+  background: #444;
+}
+
+.actor-content {
+  margin-top: 20px;
+}
