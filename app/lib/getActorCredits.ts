@@ -1,54 +1,43 @@
-// app/lib/getActorCredits.ts
-
-export interface MovieCredit {
-  id: number;
-  title: string;
-  character?: string;
-  job?: string;
-  media_type?: string;
-  poster_path: string | null;
-  release_date?: string;
-  popularity: number;
-  genre_ids?: number[];
-}
-
-export interface PaginatedCredits {
-  page: number;
-  total_pages: number;
-  results: MovieCredit[];
-}
-
-export async function getActorCredits(
-  id: string,
-  page: number = 1
-): Promise<PaginatedCredits> {
+export async function getActorCredits(id: string, page: number) {
   const token = process.env.TMDB_ACCESS_TOKEN;
 
-  const res = await fetch(
-    `https://api.themoviedb.org/3/person/${id}/movie_credits`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+  if (!token) {
+    console.error("Missing TMDB_ACCESS_TOKEN");
+    return { cast: [], total: 0, page: 1 };
+  }
+
+  // ONLY CORRECT PATH:
+  const url = `${process.env.NEXT_PUBLIC_BASE_URL}/api/tmdb-proxy?path=person/${id}/movie_credits`;
+
+  let res: Response;
+
+  try {
+    res = await fetch(url, {
+      method: "GET",
       cache: "no-store",
-    }
-  );
+    });
+  } catch (err) {
+    console.error("Network error calling TMDB Proxy:", err);
+    return { cast: [], total: 0, page: 1 };
+  }
 
   if (!res.ok) {
-    console.error("Failed to load credits:", await res.text());
-    return {
-      page: 1,
-      total_pages: 1,
-      results: [],
-    };
+    console.error("TMDB Proxy Error:", res.status, await res.text());
+    return { cast: [], total: 0, page: 1 };
   }
 
   const data = await res.json();
+  const castArray = Array.isArray(data.cast) ? data.cast : [];
+
+  const itemsPerPage = 20;
+  const start = (page - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+
+  const paginated = castArray.slice(start, end);
 
   return {
+    cast: paginated,
+    total: castArray.length,
     page,
-    total_pages: 1, // TMDB movie_credits returns all in one response
-    results: data.cast as MovieCredit[],
   };
 }

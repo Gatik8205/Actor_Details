@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import QueryWrapper from "./providers/QueryWrapper";
+import ClientProviders from "./ClientProviders";
 
 export const metadata: Metadata = {
   title: "IMDb Clone",
@@ -15,9 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <QueryWrapper>
-          {children}
-        </QueryWrapper>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );
